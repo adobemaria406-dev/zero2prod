@@ -1,11 +1,11 @@
-use tracing::Instrument;
-use actix_web::{web, App, HttpResponse, HttpServer};
 use actix_web::dev::Server;
-use std::net::TcpListener;
-use sqlx::PgPool;
-use serde::Deserialize;
-use uuid::Uuid;
+use actix_web::{App, HttpResponse, HttpServer, web};
 use chrono::Utc;
+use serde::Deserialize;
+use sqlx::PgPool;
+use std::net::TcpListener;
+use tracing::Instrument;
+use uuid::Uuid;
 
 #[derive(Deserialize)]
 pub struct Settings {

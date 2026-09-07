@@ -1,9 +1,9 @@
-use std::net::TcpListener;
 use sqlx::PgPool;
-use zero2prod::{run, get_configuration};
+use std::net::TcpListener;
 use tracing::subscriber::set_global_default;
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
-use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
+use tracing_subscriber::{EnvFilter, Registry, layer::SubscriberExt};
+use zero2prod::{get_configuration, run};
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {

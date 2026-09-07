@@ -1,5 +1,5 @@
+use sqlx::{Connection, PgConnection, PgPool};
 use std::net::TcpListener;
-use sqlx::{PgPool, PgConnection, Connection};
 use uuid::Uuid;
 use zero2prod::get_configuration;
 
@@ -14,10 +14,14 @@ async fn spawn_app() -> String {
     configuration.database.database_name = format!("test_{}", configuration_db_name);
 
     // Create the fresh database
-    let mut connection = PgConnection::connect(&configuration.database.connection_string_without_db())
-        .await
-        .expect("Failed to connect to Postgres");
-    let create_db_query = format!(r#"CREATE DATABASE "{}";"#, configuration.database.database_name);
+    let mut connection =
+        PgConnection::connect(&configuration.database.connection_string_without_db())
+            .await
+            .expect("Failed to connect to Postgres");
+    let create_db_query = format!(
+        r#"CREATE DATABASE "{}";"#,
+        configuration.database.database_name
+    );
     sqlx::query(sqlx::AssertSqlSafe(create_db_query.clone()))
         .execute(&mut connection)
         .await
