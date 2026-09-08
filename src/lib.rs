@@ -5,6 +5,7 @@ use serde::Deserialize;
 use sqlx::PgPool;
 use std::net::TcpListener;
 use tracing::Instrument;
+use tracing_actix_web::TracingLogger;
 use uuid::Uuid;
 
 #[derive(Deserialize)]
@@ -56,15 +57,6 @@ struct FormData {
 }
 
 async fn subscribe(form: web::Form<FormData>, pool: web::Data<PgPool>) -> HttpResponse {
-    let request_id = Uuid::new_v4();
-    let request_span = tracing::info_span!(
-        "Adding a new subscriber",
-        %request_id,
-        subscriber_email = %form.email,
-        subscriber_name = %form.name
-    );
-    let _request_span_guard = request_span.enter();
-
     let query_span = tracing::info_span!("Saving new subscriber details in the database");
 
     let result = sqlx::query!(
@@ -93,6 +85,7 @@ pub fn run(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Er
     let db_pool = web::Data::new(db_pool);
     let server = HttpServer::new(move || {
         App::new()
+            .wrap(TracingLogger::default())
             .route("/health_check", web::get().to(health_check))
             .route("/subscriptions", web::post().to(subscribe))
             .app_data(db_pool.clone())
