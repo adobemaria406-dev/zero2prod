@@ -7,6 +7,7 @@ use std::net::TcpListener;
 use tracing::Instrument;
 use tracing_actix_web::TracingLogger;
 use uuid::Uuid;
+use validator::ValidateEmail;
 
 #[derive(Deserialize)]
 pub struct Settings {
@@ -62,6 +63,13 @@ struct FormData {
 }
 
 async fn subscribe(form: web::Form<FormData>, pool: web::Data<PgPool>) -> HttpResponse {
+    let name_is_valid = !form.name.trim().is_empty() && form.name.chars().count() <= 256;
+    let email_is_valid = form.email.validate_email();
+
+    if !name_is_valid || !email_is_valid {
+        return HttpResponse::BadRequest().finish();
+    }
+
     let query_span = tracing::info_span!("Saving new subscriber details in the database");
 
     let result = sqlx::query!(

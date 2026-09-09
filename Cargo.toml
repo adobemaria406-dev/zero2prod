@@ -20,5 +20,6 @@ tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 tracing-bunyan-formatter = "0.3"
 tracing-log = "0.2"
 tracing-actix-web = "0.7"
+validator = { version = "0.21.0", features = ["derive"] }
 [dev-dependencies]
 reqwest = "0.11"
