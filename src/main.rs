@@ -20,7 +20,11 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Failed to connect to Postgres.");
 
-    let address = format!("0.0.0.0:{}", configuration.application_port);
+    let port = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(configuration.application_port);
+    let address = format!("0.0.0.0:{}", port);
     let listener = TcpListener::bind(address)?;
     run(listener, connection_pool)?.await
 }
