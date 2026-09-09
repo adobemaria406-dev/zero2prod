@@ -8,6 +8,43 @@ use tracing::Instrument;
 use tracing_actix_web::TracingLogger;
 use uuid::Uuid;
 use validator::ValidateEmail;
+use actix_web::{ResponseError, http::StatusCode};
+
+fn error_chain_fmt(
+    e: &impl std::error::Error,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
+    writeln!(f, "{}\n", e)?;
+    let mut current = e.source();
+    while let Some(cause) = current {
+        writeln!(f, "Caused by:\n\t{}", cause)?;
+        current = cause.source();
+    }
+    Ok(())
+}
+
+#[derive(thiserror::Error)]
+pub enum SubscribeError {
+    #[error("{0}")]
+    ValidationError(String),
+    #[error("Failed to insert new subscriber in the database.")]
+    InsertSubscriberError(#[from] sqlx::Error),
+}
+
+impl std::fmt::Debug for SubscribeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl ResponseError for SubscribeError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            SubscribeError::ValidationError(_) => StatusCode::BAD_REQUEST,
+            SubscribeError::InsertSubscriberError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
 
 #[derive(Deserialize)]
 pub struct Settings {
@@ -62,17 +99,22 @@ struct FormData {
     name: String,
 }
 
-async fn subscribe(form: web::Form<FormData>, pool: web::Data<PgPool>) -> HttpResponse {
+async fn subscribe(
+    form: web::Form<FormData>,
+    pool: web::Data<PgPool>,
+) -> Result<HttpResponse, SubscribeError> {
     let name_is_valid = !form.name.trim().is_empty() && form.name.chars().count() <= 256;
     let email_is_valid = form.email.validate_email();
 
     if !name_is_valid || !email_is_valid {
-        return HttpResponse::BadRequest().finish();
+        return Err(SubscribeError::ValidationError(
+            "Invalid subscriber name or email.".into(),
+        ));
     }
 
     let query_span = tracing::info_span!("Saving new subscriber details in the database");
 
-    let result = sqlx::query!(
+    sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at)
         VALUES ($1, $2, $3, $4)
@@ -84,15 +126,9 @@ async fn subscribe(form: web::Form<FormData>, pool: web::Data<PgPool>) -> HttpRe
     )
     .execute(pool.get_ref())
     .instrument(query_span)
-    .await;
+    .await?;
 
-    match result {
-        Ok(_) => HttpResponse::Ok().finish(),
-        Err(e) => {
-            tracing::error!("Failed to execute query: {:?}", e);
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+    Ok(HttpResponse::Ok().finish())
 }
 pub fn run(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Error> {
     let db_pool = web::Data::new(db_pool);
